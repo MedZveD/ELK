@@ -1,0 +1,68 @@
+services:
+
+  elasticsearch:
+    container_name: elastic
+    image: elasticsearch:8.15.3
+    volumes:
+        - /opt/elasticsearch/esdata:/var/lib/elasticsearch
+        - /opt/elasticsearch/eslogs:/var/log/elasticsearch
+    environment:
+      - TZ=Africa/Kampala 
+      # Or you can use HV time 
+      #- /etc/localtime:/etc/localtime:ro
+      - xpack.security.enabled=false # Cluster security needed "true"
+      - discovery.type=single-node
+      - path.repo:/opt/elasticsearch/snapshots
+      #- xpack.license.self_generated.type: basic #set licence type
+      #- ES_JAVA_OPTS: "-Xmx512m -Xms512m" #can set range use RAM
+      - ELASTIC_USERNAME=admin
+      - ELASTIC_PASSWORD=admin
+    networks:
+      - elk
+    ports:
+      - 9200:9200
+      #- 9300:9300 #if use cluster
+
+  kibana:
+    container_name: kibana
+    image: kibana:8.15.3
+    environment:
+      - TZ=Africa/Kampala 
+      # Or you can use HV time 
+      #- /etc/localtime:/etc/localtime:ro
+      - ELASTICSEARCH_HOSTS=http://elastic:9200
+      - monitoring.ui.container.elasticsearch.enabled=true # for correctly work metrics elasticsearch
+      - elasticsearch.username=admin
+      - elasticsearch.password=admin
+    networks:
+      - elk
+    depends_on:
+      - elasticsearch
+    ports:
+      - 5601:5601
+
+  logstash:
+    container_name: logstash
+    image: logstash:8.15.3
+#    volumes:
+#      - ./configs/logstash/config.yml:/usr/share/logstash/config/logstash.yml:ro
+    environment:
+      - TZ=Africa/Kampala 
+      # Or you can use HV time 
+      #- /etc/localtime:/etc/localtime:ro
+#      LS_JAVA_OPTS: "-Xmx512m -Xms512m"
+    ports:
+      - 5044:5044 #beat port
+      - 5000:5000 #Filebeat ships logs to logstash
+      - 9600:9600 #web API
+      - 9700:9700 #used for web API calls in which to run the logstash
+      #- 9200:9200 #cluster port requests to inside two nodes
+      #- 9300:9300 #used for the communication between endpoints of two nodes
+    networks:
+      - elk
+    depends_on:
+      - elasticsearch
+      
+networks:
+  elk:
+    driver: bridge
